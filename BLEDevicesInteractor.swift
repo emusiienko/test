@@ -275,22 +275,6 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
       }
     }
   }
-  
-  private func setUpLoginService() {
-    mightyLoginService.BLECommunicationEventsHandler = { [weak self] (state) in
-      if self != nil {
-        switch state {
-        case .bluetoothEnabled:
-          self!.setStateToTable(.bluetoothEnabled)
-          self!.currentState = .noDeviceFoundYet
-        case .bluetoothDisabled:
-          self!.setStateToTable(.bluetoothDisabled)
-          self!.currentState = .noBluetooth(true)
-         // self!.hideAutoconnectAlertIfNeeded(completion: {})
-        default: break
-        }
-      }
-    }
     
     mightyLoginService.mightyComunicationEventsHandler = { [weak self] (state) in
       if self != nil {
@@ -309,6 +293,22 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
           //self!.hideAutoconnectAlertIfNeeded(completion: {})
         default: break
         }
+      }
+    }
+  }
+
+private func setUpLoginService() {
+  mightyLoginService.BLECommunicationEventsHandler = { [weak self] (state) in
+    if self != nil {
+      switch state {
+      case .bluetoothEnabled:
+        self!.setStateToTable(.bluetoothEnabled)
+        self!.currentState = .noDeviceFoundYet
+      case .bluetoothDisabled:
+        self!.setStateToTable(.bluetoothDisabled)
+        self!.currentState = .noBluetooth(true)
+      // self!.hideAutoconnectAlertIfNeeded(completion: {})
+      default: break
       }
     }
   }
@@ -336,6 +336,17 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
       }
     }
   }
+
+  
+  func disconnectCurrentPeripheral() {
+    self.initialMighty = nil
+    self.currentState = .noDeviceFoundYet
+    self.headsets = []
+    self.connectedHeadset = nil
+    self.peripheralOwner.changePeripheral(nil, completion: { [weak self] in
+      self?.scan()
+    })
+  }
   
   private func connectTo(peripheral: MightyPeripheral, isAutomatic: Bool, peripheralChangedCompletion: @escaping () -> ()) {
     self.tableDelegate.showMightyHeader = true
@@ -346,16 +357,6 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
     self.peripheralOwner.changePeripheral(peripheral.identifier, completion: {
       self.currentState = .connectingToMighty(isAutomatic)
       peripheralChangedCompletion()
-    })
-  }
-  
-  func disconnectCurrentPeripheral() {
-    self.initialMighty = nil
-    self.currentState = .noDeviceFoundYet
-    self.headsets = []
-    self.connectedHeadset = nil
-    self.peripheralOwner.changePeripheral(nil, completion: { [weak self] in
-      self?.scan()
     })
   }
   
@@ -422,11 +423,7 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
     tableDelegate.peripherals = peripherals
     tableDataSource.peripherals = peripherals
   }
-  
-  private func setStateToTable(_ state: DeviceBLEState) {
-    tableDelegate.bleState = state
-    tableDataSource.bleState = state
-  }
+
   
   func saveMightyDevice() {
     if connectedMighty == nil {
@@ -469,6 +466,12 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
     }
   }
   
+  
+  private func setStateToTable(_ state: DeviceBLEState) {
+    tableDelegate.bleState = state
+    tableDataSource.bleState = state
+  }
+  
   private func setupHeadsetsService() {
     mightyHeadsetService.startWorkWithService()
   }
@@ -508,15 +511,6 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
     }
   }
   
-  private func unpairHeadset(_ headset: BTScanList) {
-    mightyHeadsetService.unpairHeadset(headset: headset) { [weak self] (result) in
-      self?.tableDataSource.setPairingState(.unpaired, for: headset)
-      if let index = self?.headsets.index(where: {$0.MacID == headset.MacID}) {
-        self?.headsets.remove(at: index)
-      }
-    }
-  }
-  
   private func disconnectHeadset(_ headset: BTScanList) {
     self.tableDataSource.setConnectionState(.connecting, for: headset)
     mightyHeadsetService.disconnectHeadset(headset: headset) { [weak self] (result) in
@@ -533,6 +527,15 @@ class BLEDevicesInteractor: BLEDevicesInteraction, MightyScanServiceDelegate {
   private func setStatus(_ status: BTHeadsetStatus, for headset: BTScanList) {
     if let index = headsets.index(where: {$0.MacID == headset.MacID}) {
       headsets[index].Status = UInt64(status.rawValue)
+    }
+  }
+  
+  private func unpairHeadset(_ headset: BTScanList) {
+    mightyHeadsetService.unpairHeadset(headset: headset) { [weak self] (result) in
+      self?.tableDataSource.setPairingState(.unpaired, for: headset)
+      if let index = self?.headsets.index(where: {$0.MacID == headset.MacID}) {
+        self?.headsets.remove(at: index)
+      }
     }
   }
 
